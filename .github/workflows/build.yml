@@ -46,15 +46,6 @@ jobs:
           echo "$clang_bin" >> "$GITHUB_PATH"
           "$clang_bin/clang" --version | head -1
 
-      - name: Fetch mkdtboimg (dtbo.img tool)
-        run: |
-          mkdir -p tools
-          curl -sL "https://android.googlesource.com/platform/system/libufdt/+/refs/heads/main/utils/src/mkdtboimg.py?format=TEXT" \
-            | base64 -d > "$PWD/tools/mkdtboimg.py"
-          python3 "$PWD/tools/mkdtboimg.py" help >/dev/null
-          sudo ln -sf /usr/bin/python3 /usr/local/bin/python2
-          echo "MKDTBO_EXT=$PWD/tools/mkdtboimg.py" >> "$GITHUB_ENV"
-
       - name: Build
         run: |
           make O=out ARCH=arm64 LLVM=1 CC="ccache clang" alioth_defconfig
