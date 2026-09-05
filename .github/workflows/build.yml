@@ -28,12 +28,16 @@ jobs:
 
       - name: Fetch Neutron Clang
         run: |
+          set -o pipefail
           mkdir -p "$HOME/clang"
           url="https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/30072026/neutron-clang-30072026.tar.zst"
           echo "Clang URL: $url"
-          curl -sL "$url" -o /tmp/clang.tar.zst
+          curl -fSL "$url" -o /tmp/clang.tar.zst
           tar -I zstd -xf /tmp/clang.tar.zst -C "$HOME/clang"
-          clang_bin=$(dirname "$(find "$HOME/clang" -type f -name clang -path '*/bin/*' | head -1)")
+          clang_bin=$(dirname "$(find "$HOME/clang" -path '*/bin/clang' | head -1)")
+          [ -x "$clang_bin/clang" ] && [ -e "$clang_bin/ld.lld" ] || {
+            echo "clang/ld.lld not found under $HOME/clang:"; ls -lR "$HOME/clang/bin" || true; exit 1;
+          }
           echo "$clang_bin" >> "$GITHUB_PATH"
           "$clang_bin/clang" --version | head -1
 
