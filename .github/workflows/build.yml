@@ -14,11 +14,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: neko-kernel-alioth
+          max-size: 2G
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
-            python3 python-is-python3 perl cpio lzop
+            python3 python-is-python3 perl cpio lzop zip
 
       - name: Fetch latest Neutron Clang
         run: |
@@ -34,14 +40,60 @@ jobs:
 
       - name: Build
         run: |
-          make O=out ARCH=arm64 LLVM=1 alioth_defconfig
-          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 Image dtboimage
+          make O=out ARCH=arm64 LLVM=1 CC="ccache clang" alioth_defconfig
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 CC="ccache clang" Image dtboimage
+
+      - name: Package AnyKernel3 zip
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          cat > AnyKernel3/anykernel.sh << 'EOF'
+          ### AnyKernel3 Ramdisk Mod Script
+          ## osm0sis @ xda-developers
+
+          ### AnyKernel setup
+          properties() { '
+          kernel.string=Neko by Neko-CIO
+          do.devicecheck=1
+          do.modules=0
+          do.systemless=1
+          do.cleanup=1
+          do.cleanuponabort=0
+          device.name1=alioth
+          device.name2=aliothin
+          device.name3=
+          device.name4=
+          device.name5=
+          supported.versions=
+          supported.patchlevels=
+          supported.vendorpatchlevels=
+          '; } # end properties
+
+          ### AnyKernel install
+          boot_attributes() {
+          set_perm_recursive 0 0 755 644 $ramdisk/*;
+          set_perm_recursive 0 0 750 750 $ramdisk/init* $ramdisk/sbin;
+          } # end attributes
+
+          block=/dev/block/bootdevice/by-name/boot;
+          is_slot_device=0;
+          ramdisk_compression=auto;
+          patch_vbmeta_flag=auto;
+
+          . tools/ak3-core.sh;
+
+          dump_boot;
+          write_boot;
+          ## end boot install
+          EOF
+          cp out/arch/arm64/boot/Image out/arch/arm64/boot/dtbo.img AnyKernel3/
+          cd AnyKernel3
+          zip -r9 ../Neko-alioth-r${GITHUB_RUN_NUMBER}.zip . -x ".git*" -x "README.md"
+          cd ..
+          sha256sum Neko-alioth-r${GITHUB_RUN_NUMBER}.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: neko-kernel-alioth
-          path: |
-            out/arch/arm64/boot/Image
-            out/arch/arm64/boot/dtbo.img
+          name: Neko-alioth-r${{ github.run_number }}
+          path: Neko-alioth-r${{ github.run_number }}.zip
           if-no-files-found: error
