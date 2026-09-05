@@ -27,11 +27,14 @@ jobs:
             python3 python-is-python3 perl cpio lzop zip
 
       - name: Fetch latest Neutron Clang
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$HOME/clang"
-          url=$(curl -sL https://api.github.com/repos/ZyCromerZ/Neutron-Clang/releases/latest \
-            | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' | head -1)
-          [ -n "$url" ] || { echo "no clang asset found"; exit 1; }
+          url=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/ZyCromerZ/Neutron-Clang/releases?per_page=10" \
+            | jq -r '[.[].assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url][0]')
+          [ -n "$url" ] && [ "$url" != "null" ] || { echo "no clang asset found"; exit 1; }
           echo "Clang URL: $url"
           curl -sL "$url" | tar -xz -C "$HOME/clang"
           clang_bin=$(dirname "$(find "$HOME/clang" -type f -name clang -path '*/bin/*' | head -1)")
