@@ -187,13 +187,19 @@
  * Gesture function enable
  * default: disable
  */
-#define FTS_GESTURE_EN 0
+#define FTS_GESTURE_EN 1
 
 /*
  * ESD check & protection
  * default: disable
  */
-#define FTS_ESDCHECK_EN 0
+#define FTS_ESDCHECK_EN 1
+
+/*
+ * Point report check
+ * releases all touches if the IC stops reporting (ghost touch watchdog)
+ */
+#define FTS_POINT_REPORT_CHECK_EN 1
 
 /*
  * Production test enable
