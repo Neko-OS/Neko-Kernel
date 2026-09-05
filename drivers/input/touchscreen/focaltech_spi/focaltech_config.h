@@ -196,12 +196,6 @@
 #define FTS_ESDCHECK_EN 1
 
 /*
- * Point report check
- * releases all touches if the IC stops reporting (ghost touch watchdog)
- */
-#define FTS_POINT_REPORT_CHECK_EN 1
-
-/*
  * Production test enable
  * 1: enable, 0:disable(default)
  */

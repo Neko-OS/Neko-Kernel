@@ -132,9 +132,9 @@
 *****************************************************************************/
 /*
  * point report check
- * default: disable
+ * releases all touches if the IC stops reporting (ghost touch watchdog)
  */
-#define FTS_POINT_REPORT_CHECK_EN 0
+#define FTS_POINT_REPORT_CHECK_EN 1
 
 /*****************************************************************************
 * Global variable or extern global variabls/functions
