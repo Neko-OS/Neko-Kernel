@@ -1,0 +1,47 @@
+name: Build Neko Kernel (alioth)
+
+on:
+  push:
+    branches: [aosp-16]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with KernelSU submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
+            python3 python-is-python3 perl cpio lzop
+
+      - name: Fetch latest Neutron Clang
+        run: |
+          mkdir -p "$HOME/clang"
+          url=$(curl -sL https://api.github.com/repos/ZyCromerZ/Neutron-Clang/releases/latest \
+            | jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' | head -1)
+          [ -n "$url" ] || { echo "no clang asset found"; exit 1; }
+          echo "Clang URL: $url"
+          curl -sL "$url" | tar -xz -C "$HOME/clang"
+          clang_bin=$(dirname "$(find "$HOME/clang" -type f -name clang -path '*/bin/*' | head -1)")
+          echo "$clang_bin" >> "$GITHUB_PATH"
+          "$clang_bin/clang" --version | head -1
+
+      - name: Build
+        run: |
+          make O=out ARCH=arm64 LLVM=1 alioth_defconfig
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 Image dtboimage
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: neko-kernel-alioth
+          path: |
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/dtbo.img
+          if-no-files-found: error
