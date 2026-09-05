@@ -49,7 +49,7 @@ jobs:
       - name: Build
         run: |
           make O=out ARCH=arm64 LLVM=1 CC="ccache clang" alioth_defconfig
-          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 CC="ccache clang" Image dtboimage
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 CC="ccache clang"
 
       - name: Package AnyKernel3 zip
         run: |
