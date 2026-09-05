@@ -24,19 +24,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
-            python3 python-is-python3 perl cpio lzop zip
+            python3 python-is-python3 perl cpio lzop zip zstd
 
-      - name: Fetch latest Neutron Clang
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Fetch Neutron Clang
         run: |
           mkdir -p "$HOME/clang"
-          url=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/ZyCromerZ/Neutron-Clang/releases?per_page=10" \
-            | jq -r '[.[].assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url][0]')
-          [ -n "$url" ] && [ "$url" != "null" ] || { echo "no clang asset found"; exit 1; }
+          url="https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/30072026/neutron-clang-30072026.tar.zst"
           echo "Clang URL: $url"
-          curl -sL "$url" | tar -xz -C "$HOME/clang"
+          curl -sL "$url" -o /tmp/clang.tar.zst
+          tar -I zstd -xf /tmp/clang.tar.zst -C "$HOME/clang"
           clang_bin=$(dirname "$(find "$HOME/clang" -type f -name clang -path '*/bin/*' | head -1)")
           echo "$clang_bin" >> "$GITHUB_PATH"
           "$clang_bin/clang" --version | head -1
