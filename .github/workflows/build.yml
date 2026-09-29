@@ -59,6 +59,9 @@ jobs:
       - name: Package AnyKernel3 zip
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          # NOTE: current AnyKernel3 reads UPPERCASE shell vars only; lowercase
+          # block=/is_slot_device=/... are silently ignored and the zip aborts
+          # in recovery with "Unable to determine partition".
           cat > AnyKernel3/anykernel.sh << 'EOF'
           ### AnyKernel3 Ramdisk Mod Script
           ## osm0sis @ xda-developers
@@ -83,10 +86,10 @@ jobs:
 
           ### AnyKernel install
           # alioth is A/B: auto-detect slot, there is no unsuffixed boot/dtbo partition
-          block=auto;
-          is_slot_device=auto;
-          ramdisk_compression=auto;
-          patch_vbmeta_flag=auto;
+          BLOCK=auto;
+          IS_SLOT_DEVICE=auto;
+          RAMDISK_COMPRESSION=auto;
+          PATCH_VBMETA_FLAG=auto;
 
           . tools/ak3-core.sh;
 
@@ -99,6 +102,23 @@ jobs:
           zip -r9 ../Neko-alioth-r${GITHUB_RUN_NUMBER}.zip . -x ".git*" -x "README.md"
           cd ..
           sha256sum Neko-alioth-r${GITHUB_RUN_NUMBER}.zip
+
+      - name: Validate AnyKernel3 zip
+        run: |
+          set -o pipefail
+          sh -n AnyKernel3/anykernel.sh
+          # ak3-core.sh reads UPPERCASE vars only; lowercase silently breaks flashing
+          grep -q '^BLOCK=auto;$' AnyKernel3/anykernel.sh
+          grep -q '^IS_SLOT_DEVICE=auto;$' AnyKernel3/anykernel.sh
+          grep -q '^RAMDISK_COMPRESSION=auto;$' AnyKernel3/anykernel.sh
+          grep -q '^PATCH_VBMETA_FLAG=auto;$' AnyKernel3/anykernel.sh
+          ! grep -qE '^(block|is_slot_device|ramdisk_compression|patch_vbmeta_flag)=' AnyKernel3/anykernel.sh
+          grep -q '^dump_boot;$' AnyKernel3/anykernel.sh
+          grep -q '^write_boot;$' AnyKernel3/anykernel.sh
+          unzip -l Neko-alioth-r${GITHUB_RUN_NUMBER}.zip | tee ziplist.txt
+          for f in anykernel.sh tools/ak3-core.sh META-INF/com/google/android/update-binary Image.gz-dtb dtbo.img; do
+            grep -q "$f\$" ziplist.txt || { echo "missing from zip: $f"; exit 1; }
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
