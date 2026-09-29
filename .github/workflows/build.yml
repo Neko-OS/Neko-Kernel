@@ -13,6 +13,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          # depth 1 also shallow-clones submodules → KSU version falls back
+          # (rev-list count=1 → 30290, no tags → empty tag shown as 0.0.0)
+          fetch-depth: 0
 
       - name: Init submodules
         run: |
