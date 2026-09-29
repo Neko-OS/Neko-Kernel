@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: sengi-standard-8-ubuntu-2404
     steps:
       - name: Checkout (with KernelSU submodule)
         uses: actions/checkout@v4
