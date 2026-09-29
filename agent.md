@@ -8,7 +8,7 @@ msm-4.19 based Android kernel. Version 4.19.325. Device alioth (POCO F3), SoC ko
 - Outputs: `arch/arm64/boot/Image`, `arch/arm64/boot/dts/vendor/qcom/*.dtb`, `arch/arm64/boot/dtbo.img`
 - Device DTS: `arch/arm64/boot/dts/vendor/qcom/alioth-sm8250*.dts(i)`
 - Out-of-tree SoC bits: `techpack/` (audio, camera, display, video, data)
-- KernelSU Next (manual hooks, `legacy` branch @ a54e4fa): source `KernelSU-Next/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`ksys_read`), `fs/stat.c` (newfstatat/fstatat64/compat + newfstat/fstat64 ret), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed.
+- KernelSU Next (manual hooks, `legacy` branch @ 5e2f853, v3.4.0-legacy-2): source `KernelSU-Next/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`ksys_read`), `fs/stat.c` (newfstatat/fstatat64/compat + newfstat/fstat64 ret), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed.
 
 ## Rules for agents
 - Do NOT build or test locally in this checkout (user constraint). Edit + static inspection only.
