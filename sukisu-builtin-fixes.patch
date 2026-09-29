@@ -1,0 +1,57 @@
+# SukiSU-Ultra builtin fixes for Neko-Kernel (4.19, non-SUSFS).
+# Applies to SukiSU-Ultra @ b20dee7 (see gitlink); CI applies this in the
+# "Init submodules" step. Refresh or drop when bumping the submodule.
+#
+# 1. ksu.c includes feature/selinux_hide.{h,c} only on >= 5.10, but three
+#    call sites in runtime/ksud.c lack the guard (two others already have
+#    it). Unguarded calls are implicit declarations (-Werror) on 4.19 and
+#    would be undefined at link.
+# 2. sulog/event.c: the non-SUSFS ksu_sulog_capture() takes argv by value
+#    while the SUSFS one takes a pointer; the shared grant_root caller
+#    always passed a pointer. Dereference only for non-SUSFS.
+diff --git a/kernel/runtime/ksud.c b/kernel/runtime/ksud.c
+--- a/kernel/runtime/ksud.c
++++ b/kernel/runtime/ksud.c
+@@ -54,6 +54,8 @@ void on_post_fs_data(void)
+     // sanity check, this may influence the performance
+     stop_input_hook();
+-    ksu_selinux_hide_handle_post_fs_data();
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++    ksu_selinux_hide_handle_post_fs_data();
++#endif
+ }
+
+ extern void ext4_unregister_sysfs(struct super_block *sb);
+@@ -216,5 +216,7 @@ int ksu_handle_execveat_ksud(int *fd, st
+             if (check_argv(*argv, 1, "second_stage", buf, sizeof(buf))) {
+                 pr_info("/system/bin/init second_stage executed\n");
+-                ksu_selinux_hide_handle_second_stage();
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++                ksu_selinux_hide_handle_second_stage();
++#endif
+                 apply_kernelsu_rules();
+                 cache_sid();
+@@ -288,5 +288,7 @@ int ksu_handle_execveat_ksud(int *fd, st
+         if (!init_second_stage_executed && check_argv(*argv, 1, "second_stage", buf, sizeof(buf))) {
+             pr_info("/system/bin/init second_stage executed\n");
+-            ksu_selinux_hide_handle_second_stage();
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++            ksu_selinux_hide_handle_second_stage();
++#endif
+             apply_kernelsu_rules();
+             cache_sid();
+diff --git a/kernel/sulog/event.c b/kernel/sulog/event.c
+--- a/kernel/sulog/event.c
++++ b/kernel/sulog/event.c
+@@ -374,7 +374,11 @@ static struct ksu_sulog_pending_event *k
+     struct ksu_sulog_event *event;
+
+     // This is actually stupid fix
++#ifdef CONFIG_KSU_SUSFS
+     #define USER_ARG_NULL user_arg_null_ptr()
++#else
++    #define USER_ARG_NULL (*user_arg_null_ptr())
++#endif
+
+     pending = ksu_sulog_capture(KSU_SULOG_EVENT_IOCTL_GRANT_ROOT, NULL, USER_ARG_NULL, gfp);
+     if (!pending)

@@ -8,7 +8,7 @@ msm-4.19 based Android kernel. Version 4.19.325. Device alioth (POCO F3), SoC ko
 - Outputs: `arch/arm64/boot/Image`, `arch/arm64/boot/dts/vendor/qcom/*.dtb`, `arch/arm64/boot/dtbo.img`
 - Device DTS: `arch/arm64/boot/dts/vendor/qcom/alioth-sm8250*.dts(i)`
 - Out-of-tree SoC bits: `techpack/` (audio, camera, display, video, data)
-- SukiSU-Ultra (manual hooks, `builtin` branch @ b20dee7): source `SukiSU-Ultra/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`vfs_read`), `fs/stat.c` (newfstatat/fstatat64/compat sucompat + newfstat/fstat64 `ksu_handle_vfs_fstat`), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed.
+- SukiSU-Ultra (manual hooks, `builtin` branch @ b20dee7): source `SukiSU-Ultra/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`vfs_read`), `fs/stat.c` (newfstatat/fstatat64/compat sucompat + newfstat/fstat64 `ksu_handle_vfs_fstat`), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed. Carries `sukisu-builtin-fixes.patch` (applied in CI) for upstream 4.19/non-SUSFS build breaks; refresh on submodule bump.
 
 ## Rules for agents
 - Do NOT build or test locally in this checkout (user constraint). Edit + static inspection only.
