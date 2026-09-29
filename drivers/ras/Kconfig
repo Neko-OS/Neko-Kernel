@@ -28,8 +28,3 @@ menuconfig RAS
 	  so have ideal availability, but may be unreliable, with frequent
 	  data corruption.
 
-if RAS
-
-source arch/x86/ras/Kconfig
-
-endif
