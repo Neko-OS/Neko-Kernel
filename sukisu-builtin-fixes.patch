@@ -9,6 +9,10 @@
 # 2. sulog/event.c: the non-SUSFS ksu_sulog_capture() takes argv by value
 #    while the SUSFS one takes a pointer; the shared grant_root caller
 #    always passed a pointer. Dereference only for non-SUSFS.
+# 3. feature/sucompat.c: the non-SUSFS build refuses su from any caller
+#    with TIF_SECCOMP, i.e. every zygote-spawned app on Android 8+.
+#    Neither KernelSU-Next nor SukiSU main has this gate (the allowlist
+#    stays the gate). Drop it so su works after grant from apps.
 diff --git a/kernel/runtime/ksud.c b/kernel/runtime/ksud.c
 --- a/kernel/runtime/ksud.c
 +++ b/kernel/runtime/ksud.c
@@ -55,3 +59,16 @@ diff --git a/kernel/sulog/event.c b/kernel/sulog/event.c
 
      pending = ksu_sulog_capture(KSU_SULOG_EVENT_IOCTL_GRANT_ROOT, NULL, USER_ARG_NULL, gfp);
      if (!pending)
+diff --git a/kernel/feature/sucompat.c b/kernel/feature/sucompat.c
+--- a/kernel/feature/sucompat.c
++++ b/kernel/feature/sucompat.c
+@@ -217,9 +217,6 @@ __attribute__((hot)) static __always_inl
+ {
+     if (!ksu_su_compat_enabled)
+         return false;
+
+-    if (likely(test_thread_flag(TIF_SECCOMP)))
+-        return false;
+-
+     if (!ksu_is_allow_uid_for_current(current_uid().val))
+         return false;

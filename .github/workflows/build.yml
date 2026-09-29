@@ -20,8 +20,8 @@ jobs:
       - name: Init submodules
         run: |
           git submodule update --init --recursive
-          # upstream builtin @ b20dee7 doesn't compile on 4.19 non-SUSFS
-          # (unguarded selinux_hide calls, sulog argv type); fixed in-tree
+          # upstream builtin @ b20dee7 needs fixes on 4.19 non-SUSFS
+          # (selinux_hide guards, sulog argv type, sucompat seccomp gate)
           git -C SukiSU-Ultra apply ../sukisu-builtin-fixes.patch
           test -f SukiSU-Ultra/kernel/Kconfig
           # in-tree manual hooks (fs/*, kernel/reboot.c, drivers/input) call into
