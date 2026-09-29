@@ -357,12 +357,7 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
 __attribute__((hot))
 extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
 				int *flags);
-extern void ksu_handle_newfstat_ret(unsigned int *fd,
-				struct stat __user **statbuf_ptr);
-#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
-extern void ksu_handle_fstat64_ret(unsigned long *fd,
-				struct stat64 __user **statbuf_ptr);
-#endif
+extern void ksu_handle_vfs_fstat(int fd, loff_t *kstat_size_ptr);
 #endif
 
 #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
@@ -387,11 +382,11 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
 	struct kstat stat;
 	int error = vfs_fstat(fd, &stat);
 
+#ifdef CONFIG_KSU
+	ksu_handle_vfs_fstat(fd, &stat.size);
+#endif
 	if (!error)
 		error = cp_new_stat(&stat, statbuf);
-#ifdef CONFIG_KSU
-	ksu_handle_newfstat_ret(&fd, &statbuf);
-#endif
 
 	return error;
 }
@@ -516,11 +511,11 @@ SYSCALL_DEFINE2(fstat64, unsigned long, fd, struct stat64 __user *, statbuf)
 	struct kstat stat;
 	int error = vfs_fstat(fd, &stat);
 
+#ifdef CONFIG_KSU
+	ksu_handle_vfs_fstat(fd, &stat.size);
+#endif
 	if (!error)
 		error = cp_new_stat64(&stat, statbuf);
-#ifdef CONFIG_KSU
-	ksu_handle_fstat64_ret(&fd, &statbuf);
-#endif
 
 	return error;
 }

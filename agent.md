@@ -3,12 +3,12 @@
 msm-4.19 based Android kernel. Version 4.19.325. Device alioth (POCO F3), SoC kona / sm8250. Branch `aosp-16`, remote `PocoF3Releases/kernel_xiaomi_sm8250`.
 
 ## Key files
-- Defconfig: `arch/arm64/configs/alioth_defconfig` (`CONFIG_ARCH_KONA=y`, `CONFIG_LOCALVERSION="-Neko"`, `CONFIG_KSU=y`)
+- Defconfig: `arch/arm64/configs/alioth_defconfig` (`CONFIG_ARCH_KONA=y`, `CONFIG_LOCALVERSION="-Neko"`, `CONFIG_KSU=y`, `CONFIG_KSU_SUSFS` unset — SUSFS needs fs/ patches this tree doesn't carry)
 - Build entry: `build.config.xiaomi.alioth` → inherits `build.config.xiaomi.sm8250` → ACK `build.config.common` / `build.config.aarch64` (clang, `BUILD_CONFIG` style, not plain `make`)
 - Outputs: `arch/arm64/boot/Image`, `arch/arm64/boot/dts/vendor/qcom/*.dtb`, `arch/arm64/boot/dtbo.img`
 - Device DTS: `arch/arm64/boot/dts/vendor/qcom/alioth-sm8250*.dts(i)`
 - Out-of-tree SoC bits: `techpack/` (audio, camera, display, video, data)
-- KernelSU Next (manual hooks, `legacy` branch @ 5e2f853, v3.4.0-legacy-2): source `KernelSU-Next/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`ksys_read`), `fs/stat.c` (newfstatat/fstatat64/compat + newfstat/fstat64 ret), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed.
+- SukiSU-Ultra (manual hooks, `builtin` branch @ b20dee7): source `SukiSU-Ultra/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`vfs_read`), `fs/stat.c` (newfstatat/fstatat64/compat sucompat + newfstat/fstat64 `ksu_handle_vfs_fstat`), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed.
 
 ## Rules for agents
 - Do NOT build or test locally in this checkout (user constraint). Edit + static inspection only.

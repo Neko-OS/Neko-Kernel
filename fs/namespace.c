@@ -1763,9 +1763,8 @@ SYSCALL_DEFINE1(oldumount, char __user *, name)
 #endif
 
 /*
- * KernelSU-Next backport of path_umount(); normally injected at build time by
- * drivers/kernelsu/Kbuild, added in-tree so parallel O=out builds are
- * deterministic.
+ * In-tree path_umount() for SukiSU-Ultra: overrides its __weak fallback
+ * (d_path + ksys_umount roundtrip) with the direct do_umount implementation.
  */
 static int can_umount(const struct path *path, int flags)
 {
