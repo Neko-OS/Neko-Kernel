@@ -3,12 +3,12 @@
 msm-4.19 based Android kernel. Version 4.19.325. Device alioth (POCO F3), SoC kona / sm8250. Branch `aosp-16`, remote `PocoF3Releases/kernel_xiaomi_sm8250`.
 
 ## Key files
-- Defconfig: `arch/arm64/configs/alioth_defconfig` (`CONFIG_ARCH_KONA=y`, `CONFIG_LOCALVERSION="-Neko"`, `CONFIG_KSU=y`, `CONFIG_KSU_SUSFS` unset — SUSFS needs fs/ patches this tree doesn't carry)
+- Defconfig: `arch/arm64/configs/alioth_defconfig` (`CONFIG_ARCH_KONA=y`, `CONFIG_LOCALVERSION="-Neko"`, `CONFIG_KSU=y`, `CONFIG_KSU_HACK_ARM64_BRANCH_LINK=y`)
 - Build entry: `build.config.xiaomi.alioth` → inherits `build.config.xiaomi.sm8250` → ACK `build.config.common` / `build.config.aarch64` (clang, `BUILD_CONFIG` style, not plain `make`)
 - Outputs: `arch/arm64/boot/Image`, `arch/arm64/boot/dts/vendor/qcom/*.dtb`, `arch/arm64/boot/dtbo.img`
 - Device DTS: `arch/arm64/boot/dts/vendor/qcom/alioth-sm8250*.dts(i)`
 - Out-of-tree SoC bits: `techpack/` (audio, camera, display, video, data)
-- SukiSU-Ultra (manual hooks, `builtin` branch @ b20dee7): source `SukiSU-Ultra/`, wired via symlink `drivers/kernelsu`; hooks in `fs/exec.c` (`do_execveat_common`), `fs/open.c` (`do_faccessat`), `fs/read_write.c` (`vfs_read`), `fs/stat.c` (newfstatat/fstatat64/compat sucompat + newfstat/fstat64 `ksu_handle_vfs_fstat`), `kernel/reboot.c`, `drivers/input/input.c` (`input_event`). All under `#ifdef CONFIG_KSU`, no KPROBES needed. Carries `sukisu-builtin-fixes.patch` (applied in CI) for upstream 4.19/non-SUSFS build breaks + sucompat seccomp gate; refresh on submodule bump.
+- KernelSU by backslashxx (`master` @ f263bdb9, v3.3.0+): source `KernelSU/`, wired via symlink `drivers/kernelsu`. Zero in-tree hooks — sucompat via `KSU_HACK_ARM64_BRANCH_LINK` with syscall-table fallback, sepolicy/init tracking via LSM hooks, no KPROBES needed. In-tree `path_umount` backport in `fs/namespace.c` kept (driver null-checks its `__weak` decl; pin makes "Umount modules" work). No SUSFS in this fork. Manager must match the original KernelSU APK signature (`EXPECTED 0x033b/c371…`, overridable via `KSU_MANAGER_PACKAGE` / `KSU_EXPECTED_*`).
 
 ## Rules for agents
 - Do NOT build or test locally in this checkout (user constraint). Edit + static inspection only.

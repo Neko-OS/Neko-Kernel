@@ -778,6 +778,6 @@ CONFIG_RMNET_PERF=y
 CONFIG_RMNET_SHS=y
 CONFIG_TECHPACK_CAMERA_XIAOMI=y
 
-# SukiSU-Ultra (manual hooks, builtin branch; SUSFS needs fs/ patches we don't carry)
+# KernelSU (backslashxx, zero in-tree hooks: branch-link + syscall-table fallback)
 CONFIG_KSU=y
-# CONFIG_KSU_SUSFS is not set
+CONFIG_KSU_HACK_ARM64_BRANCH_LINK=y

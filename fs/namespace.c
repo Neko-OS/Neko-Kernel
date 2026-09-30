@@ -1763,8 +1763,8 @@ SYSCALL_DEFINE1(oldumount, char __user *, name)
 #endif
 
 /*
- * In-tree path_umount() for SukiSU-Ultra: overrides its __weak fallback
- * (d_path + ksys_umount roundtrip) with the direct do_umount implementation.
+ * In-tree path_umount() backport (5.9) for KernelSU "Umount modules" on
+ * pre-5.9 kernels; the driver tolerates its absence via __weak.
  */
 static int can_umount(const struct path *path, int flags)
 {
