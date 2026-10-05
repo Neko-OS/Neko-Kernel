@@ -1,0 +1,28 @@
+config NEKO_DRV
+	tristate "Neko stealth process-memory driver"
+	default m
+	help
+	  Character device (/dev/nekodrv by default) exposing in-kernel
+	  process memory read/write, pid lookup by package name, and
+	  module-base lookup for the Neko daemon. Replaces the daemon's
+	  /proc/<pid>/mem + /proc/<pid>/maps access so the game cannot
+	  see those usermode traces.
+
+	  =y (built-in, recommended for Neko-Kernel): no .ko on disk,
+	  nothing to find in lsmod; only a /dev node which the daemon
+	  unlinks after opening.
+
+	  =m (loadable): NEKO_IOCTL_HIDE unlinks the module from
+	  /proc/modules and sysfs at runtime.
+
+	  If unsure, say M.
+
+config NEKO_DEV_NAME
+	string "Neko device node name"
+	depends on NEKO_DRV
+	default "nekodrv"
+	help
+	  Name of the node created under /dev. Rename to something
+	  innocuous-looking if you want it to blend in (ueventd must
+	  allow the name; keep it unique, never clash with a real
+	  device like kgsl-3d0 or binder).
