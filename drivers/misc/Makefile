@@ -83,8 +83,7 @@ obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
 obj-$(CONFIG_HALL_AKM09970)	+= akm09970.o
 obj-$(CONFIG_MOTOR_DRV8846)	+= drv8846.o
 obj-$(CONFIG_SPI_XIAOMI_TP)	+= spi-xiaomi-tp.o
-ifeq ($(CONFIG_NEKO_MEM),y)
-$(info -- NekoMem: /dev/neko_mem built-in, read/write/readv/module ioctls)
-$(info -- NekoMem: session-key handshake enabled)
+ifeq ($(CONFIG_TPDBG),y)
+$(info -- tpdbg: touchpanel debug proc node)
 endif
-obj-$(CONFIG_NEKO_MEM) += neko_mem.o
+obj-$(CONFIG_TPDBG) += tpdbg.o
