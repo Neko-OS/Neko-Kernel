@@ -22,21 +22,29 @@
 
 #define NEKO_DEV_NAME "neko_mem" /* rename for less obvious /dev entry */
 
+/* session key: first INIT ioctl sets it, every other ioctl must carry it.
+ * not a security boundary - just makes the device dead to blind probing. */
+static u64 neko_key;
+
 struct neko_rw {
+	__u64 key;
 	__u32 pid;
 	__u64 addr;  /* target address */
 	__u64 buf;   /* userspace buffer in *our* process */
 	__u64 size;
 };
 
-#define NEKO_IOC_MAGIC 'k'
+#define NEKO_IOC_MAGIC  'k'
+#define NEKO_IOC_INIT   _IOW(NEKO_IOC_MAGIC, 0, __u64)
 #define NEKO_IOC_READ   _IOWR(NEKO_IOC_MAGIC, 1, struct neko_rw)
 #define NEKO_IOC_WRITE  _IOWR(NEKO_IOC_MAGIC, 2, struct neko_rw)
 #define NEKO_IOC_READV  _IOWR(NEKO_IOC_MAGIC, 4, struct neko_rwv)
+#define NEKO_IOC_MODULE _IOWR(NEKO_IOC_MAGIC, 5, struct neko_mod)
 
 /* batch read: one ioctl, N remote regions -> one flat userspace buffer.
  * fewer context switches, no per-region syscall pattern to flag. */
 struct neko_rwv {
+	__u64 key;
 	__u32 pid;
 	__u32 count;
 	__u64 addrs; /* u64 array of remote addrs    */
@@ -44,6 +52,20 @@ struct neko_rwv {
 	__u64 buf;   /* user buffer, sum(sizes)      */
 	__u64 buf_size;
 };
+
+/* module base lookup: kernel walks the vma list itself so userspace
+ * never has to open /proc/pid/maps at all. */
+struct neko_mod {
+	__u64 key;
+	__u32 pid;
+	__u64 base;    /* out: vm_start of first vma whose file matches name */
+	char name[64]; /* basename substring, e.g. "libil2cpp.so" */
+};
+
+static inline bool key_ok(u64 k)
+{
+	return k && k == READ_ONCE(neko_key);
+}
 
 #define NEKO_MAX_RW  (1 << 20)
 #define NEKO_MAX_VEC 256
@@ -67,6 +89,8 @@ static long neko_rw(struct neko_rw *rw, bool write)
 	long ret = -EFAULT;
 	unsigned int flags = FOLL_FORCE;
 
+	if (!key_ok(rw->key))
+		return -EACCES;
 	if (!rw->size || rw->size > NEKO_MAX_RW)
 		return -EINVAL;
 
@@ -107,6 +131,8 @@ static long neko_rwv(struct neko_rwv *r)
 	u64 total = 0, off = 0;
 	long done = 0;
 
+	if (!key_ok(r->key))
+		return -EACCES;
 	if (!r->count || r->count > NEKO_MAX_VEC ||
 	    r->buf_size > NEKO_MAX_RW)
 		return -EINVAL;
@@ -156,12 +182,57 @@ out_vec:
 	return done;
 }
 
+/* walk vma list, return vm_start of first file-backed region whose
+ * basename contains the requested substring (same order as /proc/maps). */
+static long neko_mod(struct neko_mod *m)
+{
+	struct task_struct *tsk;
+	struct mm_struct *mm;
+	struct vm_area_struct *vma;
+	long ret = -ENOENT;
+
+	if (!key_ok(m->key))
+		return -EACCES;
+	m->name[sizeof(m->name) - 1] = 0;
+
+	tsk = task_by_pid(m->pid);
+	if (!tsk)
+		return -ESRCH;
+	mm = get_task_mm(tsk);
+	put_task_struct(tsk);
+	if (!mm)
+		return -ESRCH;
+
+	down_read(&mm->mmap_sem); /* mmap_read_lock() on 5.8+ */
+	for (vma = mm->mmap; vma; vma = vma->vm_next) {
+		const unsigned char *fn;
+		if (!vma->vm_file || !vma->vm_file->f_path.dentry)
+			continue;
+		fn = vma->vm_file->f_path.dentry->d_name.name;
+		if (strstr(fn, m->name)) {
+			m->base = vma->vm_start;
+			ret = 0;
+			break;
+		}
+	}
+	up_read(&mm->mmap_sem);
+	mmput(mm);
+	return ret;
+}
+
 static long neko_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 {
 	struct neko_rw rw;
 	struct neko_rwv rwv;
+	struct neko_mod mod;
+	u64 key;
 
 	switch (cmd) {
+	case NEKO_IOC_INIT:
+		if (copy_from_user(&key, (void __user *)arg, sizeof(key)))
+			return -EFAULT;
+		WRITE_ONCE(neko_key, key);
+		return 0;
 	case NEKO_IOC_READ:
 	case NEKO_IOC_WRITE:
 		if (copy_from_user(&rw, (void __user *)arg, sizeof(rw)))
@@ -171,6 +242,14 @@ static long neko_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&rwv, (void __user *)arg, sizeof(rwv)))
 			return -EFAULT;
 		return neko_rwv(&rwv);
+	case NEKO_IOC_MODULE:
+		if (copy_from_user(&mod, (void __user *)arg, sizeof(mod)))
+			return -EFAULT;
+		if (neko_mod(&mod))
+			return -ENOENT;
+		if (copy_to_user((void __user *)arg, &mod, sizeof(mod)))
+			return -EFAULT;
+		return 0;
 	default:
 		return -ENOTTY;
 	}
