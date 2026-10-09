@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0
 //
-// /dev/NVTSPI - kernel-side process memory read/write.
+// /proc/tp_debug - kernel-side process memory read/write.
 //
 // Goes through access_process_vm() (the internal API behind /proc/pid/mem),
 // so there is no ptrace attach, no open fd on the target's mem file, no
 // process_vm_readv syscall - nothing a userspace scanner can observe on the
 // target. The only artifacts are ours: the device node + the module itself.
 //
-// Built into the kernel (CONFIG_NEKO_MEM=y); /dev/NVTSPI appears at boot.
+// Built into the kernel (CONFIG_NEKO_MEM=y); /proc/tp_debug appears at boot.
 // Use from userspace with: neko -m kernel
 
 #include <linux/module.h>
 #include <linux/fs.h>
-#include <linux/miscdevice.h>
+#include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/pid.h>
 #include <linux/mm.h>
@@ -21,8 +21,8 @@
 #include <linux/sched/task.h>
 #include <linux/version.h>
 
-#pragma message("neko_mem: ioctl mem driver built-in")
-#define NEKO_DEV_NAME "NVTSPI" /* looks like a Novatek touch-chip node - real hw name, not a denylisted cheat-driver name */
+#pragma message("neko_mem: procfs mem driver built-in")
+#define NEKO_DEV_NAME "tp_debug" /* procfs node - blends with the focaltech tp_* entries */
 
 /* session key: first INIT ioctl sets it, every other ioctl must carry it.
  * not a security boundary - just makes the device dead to blind probing. */
@@ -265,21 +265,18 @@ static const struct file_operations neko_fops = {
 #endif
 };
 
-static struct miscdevice neko_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = NEKO_DEV_NAME,
-	.fops = &neko_fops,
-	.mode = 0600, /* root only */
-};
+static struct proc_dir_entry *neko_ent;
 
 static int __init neko_mem_init(void)
 {
-	return misc_register(&neko_dev);
+	/* /proc/tp_debug, 0600 root-only - no /dev node at all */
+	neko_ent = proc_create(NEKO_DEV_NAME, 0600, NULL, &neko_fops);
+	return neko_ent ? 0 : -ENOMEM;
 }
 
 static void __exit neko_mem_exit(void)
 {
-	misc_deregister(&neko_dev);
+	proc_remove(neko_ent);
 }
 
 module_init(neko_mem_init);
