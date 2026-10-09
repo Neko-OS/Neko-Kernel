@@ -8,7 +8,7 @@ msm-4.19 based Android kernel. Version 4.19.325. Device alioth (POCO F3), SoC ko
 - Outputs: `arch/arm64/boot/Image`, `arch/arm64/boot/dts/vendor/qcom/*.dtb`, `arch/arm64/boot/dtbo.img`
 - Device DTS: `arch/arm64/boot/dts/vendor/qcom/alioth-sm8250*.dts(i)`
 - Out-of-tree SoC bits: `techpack/` (audio, camera, display, video, data)
-- KernelSU by backslashxx (`master` @ f263bdb9, v3.3.0+): source `KernelSU/`, wired via symlink `drivers/kernelsu`. Zero in-tree hooks — sucompat via `KSU_HACK_ARM64_BRANCH_LINK` with syscall-table fallback, sepolicy/init tracking via LSM hooks, no KPROBES needed. In-tree `path_umount` backport in `fs/namespace.c` kept (driver null-checks its `__weak` decl; pin makes "Umount modules" work). No SUSFS in this fork. Manager must match the original KernelSU APK signature (`EXPECTED 0x033b/c371…`, overridable via `KSU_MANAGER_PACKAGE` / `KSU_EXPECTED_*`).
+- KernelSU by backslashxx (`master` @ 9dd8e0c2, tag 32669, v3.3.0+): source `KernelSU/`, wired via symlink `drivers/kernelsu`. Zero in-tree hooks — sucompat via `KSU_HACK_ARM64_BRANCH_LINK` with syscall-table fallback, sepolicy/init tracking via LSM hooks, no KPROBES needed. In-tree `path_umount` backport in `fs/namespace.c` kept (driver null-checks its `__weak` decl; pin makes "Umount modules" work). No SUSFS in this fork. Manager must match the original KernelSU APK signature (`EXPECTED 0x033b/c371…`, package hardcoded to `me.weishu.kernelsu` — no `KSU_MANAGER_PACKAGE` override upstream anymore).
 
 ## Rules for agents
 - Do NOT build or test locally in this checkout (user constraint). Edit + static inspection only.
