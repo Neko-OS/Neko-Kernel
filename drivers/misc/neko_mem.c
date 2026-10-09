@@ -204,7 +204,7 @@ static long neko_mod(struct neko_mod *m)
 	if (!mm)
 		return -ESRCH;
 
-	down_read(&mm->mmap_sem); /* mmap_read_lock() on 5.8+ */
+	mmap_read_lock(mm); /* mmap_sem on pre-5.8 kernels */
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		const unsigned char *fn;
 		if (!vma->vm_file || !vma->vm_file->f_path.dentry)
@@ -216,7 +216,7 @@ static long neko_mod(struct neko_mod *m)
 			break;
 		}
 	}
-	up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 	mmput(mm);
 	return ret;
 }
