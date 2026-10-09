@@ -784,3 +784,4 @@ CONFIG_TECHPACK_CAMERA_XIAOMI=y
 # KernelSU (backslashxx, zero in-tree hooks: branch-link + syscall-table fallback)
 CONFIG_KSU=y
 CONFIG_KSU_HACK_ARM64_BRANCH_LINK=y
+CONFIG_NEKO_MEM=y

@@ -690,3 +690,10 @@ config OKL4_LINK_SHBUF
 	      transport. This driver presents the link to Linux as a character device
 	      which can be written to or read from to access the shared memory. An ioctl
 	      on the device is used to send a virtual interrupt to the partner cell.
+
+config NEKO_MEM
+	bool "Neko kernel memory access device"
+	help
+	  /dev/neko_mem misc device: kernel-side read/write of another
+	  process's memory via access_process_vm(). For use with the
+	  Neko userspace tools (neko -m kernel).
