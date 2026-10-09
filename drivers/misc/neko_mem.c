@@ -21,6 +21,7 @@
 #include <linux/sched/task.h>
 #include <linux/version.h>
 
+#pragma message("neko_mem: ioctl mem driver built-in")
 #define NEKO_DEV_NAME "neko_mem" /* rename for less obvious /dev entry */
 
 /* session key: first INIT ioctl sets it, every other ioctl must carry it.
