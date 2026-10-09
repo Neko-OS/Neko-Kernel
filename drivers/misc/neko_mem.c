@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 //
-// /proc/tp_debug - kernel-side process memory read/write.
+// /proc/<random> - kernel-side process memory read/write.
 //
 // Goes through access_process_vm() (the internal API behind /proc/pid/mem),
 // so there is no ptrace attach, no open fd on the target's mem file, no
 // process_vm_readv syscall - nothing a userspace scanner can observe on the
 // target. The only artifacts are ours: the device node + the module itself.
 //
-// Built into the kernel (CONFIG_NEKO_MEM=y); /proc/tp_debug appears at boot.
-// Use from userspace with: neko -m kernel
+// Built into the kernel (CONFIG_NEKO_MEM=y); /proc/<random 8-char>
+// appears at boot. Use from userspace with: neko -m kernel
 
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -22,7 +22,10 @@
 #include <linux/version.h>
 
 #pragma message("neko_mem: procfs mem driver built-in")
-#define NEKO_DEV_NAME "tp_debug" /* procfs node - blends with the focaltech tp_* entries */
+/* random 8-char alnum procfs name per boot (china-driver trick): name
+ * signatures can't match, and the entry blends into the /proc noise.
+ * userspace finds it by probing candidates with the INIT ioctl. */
+static char neko_name[9];
 
 /* session key: first INIT ioctl sets it, every other ioctl must carry it.
  * not a security boundary - just makes the device dead to blind probing. */
@@ -269,8 +272,19 @@ static struct proc_dir_entry *neko_ent;
 
 static int __init neko_mem_init(void)
 {
-	/* /proc/tp_debug, 0600 root-only - no /dev node at all */
-	neko_ent = proc_create(NEKO_DEV_NAME, 0600, NULL, &neko_fops);
+	static const char alnum[] =
+		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	u8 r[8];
+	int i;
+
+	get_random_bytes(r, sizeof(r));
+	neko_name[0] = alnum[r[0] % 52]; /* letter - never looks like a pid dir */
+	for (i = 1; i < 8; i++)
+		neko_name[i] = alnum[r[i] % 62];
+	neko_name[8] = 0;
+
+	/* /proc/<random>, 0600 root-only - no /dev node at all */
+	neko_ent = proc_create(neko_name, 0600, NULL, &neko_fops);
 	return neko_ent ? 0 : -ENOMEM;
 }
 
