@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 //
-// /dev/qxdriver - kernel-side process memory read/write.
+// /dev/NVTSPI - kernel-side process memory read/write.
 //
 // Goes through access_process_vm() (the internal API behind /proc/pid/mem),
 // so there is no ptrace attach, no open fd on the target's mem file, no
 // process_vm_readv syscall - nothing a userspace scanner can observe on the
 // target. The only artifacts are ours: the device node + the module itself.
 //
-// Built into the kernel (CONFIG_NEKO_MEM=y); /dev/qxdriver appears at boot.
+// Built into the kernel (CONFIG_NEKO_MEM=y); /dev/NVTSPI appears at boot.
 // Use from userspace with: neko -m kernel
 
 #include <linux/module.h>
@@ -22,7 +22,7 @@
 #include <linux/version.h>
 
 #pragma message("neko_mem: ioctl mem driver built-in")
-#define NEKO_DEV_NAME "qxdriver" /* china-driver-style name: blends with qx/rt/wanbai-class devices */
+#define NEKO_DEV_NAME "NVTSPI" /* looks like a Novatek touch-chip node - real hw name, not a denylisted cheat-driver name */
 
 /* session key: first INIT ioctl sets it, every other ioctl must carry it.
  * not a security boundary - just makes the device dead to blind probing. */
