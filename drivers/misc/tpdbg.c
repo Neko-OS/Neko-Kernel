@@ -20,6 +20,7 @@
 #include <linux/sched/mm.h>
 #include <linux/sched/task.h>
 #include <linux/version.h>
+#include <linux/random.h>
 
 #pragma message("tpdbg: touchpanel debug proc node")
 /* random 8-char alnum procfs name per boot (china-driver trick): name
@@ -67,6 +68,9 @@ struct tpd_mod {
 	__u64 base;    /* out: vm_start of first vma whose file matches name */
 	char name[64]; /* basename substring, e.g. "libil2cpp.so" */
 };
+
+static struct proc_dir_entry *tpd_ent;
+static int tpd_release(struct inode *i, struct file *f);
 
 static inline bool tpd_keyok(u64 k)
 {
@@ -274,16 +278,6 @@ static long tpd_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 	}
 }
 
-/* when the client closes, recreate the node and clear the key:
- * hidden while in use, discoverable again for the next run. */
-static int tpd_release(struct inode *i, struct file *f)
-{
-	if (!tpd_ent)
-		tpd_ent = proc_create(tpd_name, 0600, NULL, &tpd_fops);
-	WRITE_ONCE(tpd_key, 0);
-	return 0;
-}
-
 static const struct file_operations tpd_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = tpd_ioctl,
@@ -293,7 +287,15 @@ static const struct file_operations tpd_fops = {
 #endif
 };
 
-static struct proc_dir_entry *tpd_ent;
+/* when the client closes, recreate the node and clear the key:
+ * hidden while in use, discoverable again for the next run. */
+static int tpd_release(struct inode *i, struct file *f)
+{
+	if (!tpd_ent)
+		tpd_ent = proc_create(tpd_name, 0600, NULL, &tpd_fops);
+	WRITE_ONCE(tpd_key, 0);
+	return 0;
+}
 
 static int __init tpd_init(void)
 {
