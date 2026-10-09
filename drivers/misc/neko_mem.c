@@ -18,6 +18,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/sched/mm.h>
+#include <linux/sched/task.h>
 #include <linux/version.h>
 
 #define NEKO_DEV_NAME "neko_mem" /* rename for less obvious /dev entry */
