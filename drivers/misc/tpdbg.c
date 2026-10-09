@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 //
-// /proc/<random> - kernel-side process memory read/write.
+// touchpanel debug proc node - kernel-side memory read/write.
 //
 // Goes through access_process_vm() (the internal API behind /proc/pid/mem),
 // so there is no ptrace attach, no open fd on the target's mem file, no
 // process_vm_readv syscall - nothing a userspace scanner can observe on the
 // target. The only artifacts are ours: the device node + the module itself.
 //
-// Built into the kernel (CONFIG_NEKO_MEM=y); /proc/<random 8-char>
+// Built into the kernel (CONFIG_TPDBG=y); /proc/<random 8-char>
 // appears at boot. Use from userspace with: neko -m kernel
 
 #include <linux/module.h>
@@ -21,17 +21,17 @@
 #include <linux/sched/task.h>
 #include <linux/version.h>
 
-#pragma message("neko_mem: procfs mem driver built-in")
+#pragma message("tpdbg: touchpanel debug proc node")
 /* random 8-char alnum procfs name per boot (china-driver trick): name
  * signatures can't match, and the entry blends into the /proc noise.
  * userspace finds it by probing candidates with the INIT ioctl. */
-static char neko_name[9];
+static char tpd_name[9];
 
 /* session key: first INIT ioctl sets it, every other ioctl must carry it.
  * not a security boundary - just makes the device dead to blind probing. */
-static u64 neko_key;
+static u64 tpd_key;
 
-struct neko_rw {
+struct tpd_rw {
 	__u64 key;
 	__u32 pid;
 	__u64 addr;  /* target address */
@@ -39,16 +39,17 @@ struct neko_rw {
 	__u64 size;
 };
 
-#define NEKO_IOC_MAGIC  'k'
-#define NEKO_IOC_INIT   _IOW(NEKO_IOC_MAGIC, 0, __u64)
-#define NEKO_IOC_READ   _IOWR(NEKO_IOC_MAGIC, 1, struct neko_rw)
-#define NEKO_IOC_WRITE  _IOWR(NEKO_IOC_MAGIC, 2, struct neko_rw)
-#define NEKO_IOC_READV  _IOWR(NEKO_IOC_MAGIC, 4, struct neko_rwv)
-#define NEKO_IOC_MODULE _IOWR(NEKO_IOC_MAGIC, 5, struct neko_mod)
+#define TPD_IOC_MAGIC  'k'
+#define TPD_IOC_INIT   _IOW(TPD_IOC_MAGIC, 0, __u64)
+#define TPD_IOC_READ   _IOWR(TPD_IOC_MAGIC, 1, struct tpd_rw)
+#define TPD_IOC_WRITE  _IOWR(TPD_IOC_MAGIC, 2, struct tpd_rw)
+#define TPD_IOC_READV  _IOWR(TPD_IOC_MAGIC, 4, struct tpd_rwv)
+#define TPD_IOC_MODULE _IOWR(TPD_IOC_MAGIC, 5, struct tpd_mod)
+#define TPD_IOC_DEL    _IOW(TPD_IOC_MAGIC, 6, __u64) /* unlink proc node */
 
 /* batch read: one ioctl, N remote regions -> one flat userspace buffer.
  * fewer context switches, no per-region syscall pattern to flag. */
-struct neko_rwv {
+struct tpd_rwv {
 	__u64 key;
 	__u32 pid;
 	__u32 count;
@@ -60,22 +61,22 @@ struct neko_rwv {
 
 /* module base lookup: kernel walks the vma list itself so userspace
  * never has to open /proc/pid/maps at all. */
-struct neko_mod {
+struct tpd_mod {
 	__u64 key;
 	__u32 pid;
 	__u64 base;    /* out: vm_start of first vma whose file matches name */
 	char name[64]; /* basename substring, e.g. "libil2cpp.so" */
 };
 
-static inline bool key_ok(u64 k)
+static inline bool tpd_keyok(u64 k)
 {
-	return k && k == READ_ONCE(neko_key);
+	return k && k == READ_ONCE(tpd_key);
 }
 
-#define NEKO_MAX_RW  (1 << 20)
-#define NEKO_MAX_VEC 256
+#define TPD_MAX_RW  (1 << 20)
+#define TPD_MAX_VEC 256
 
-static struct task_struct *task_by_pid(u32 pid)
+static struct task_struct *tpd_task(u32 pid)
 {
 	struct pid *p = find_get_pid(pid);
 	struct task_struct *t;
@@ -87,16 +88,16 @@ static struct task_struct *task_by_pid(u32 pid)
 	return t;
 }
 
-static long neko_rw(struct neko_rw *rw, bool write)
+static long tpd_rw(struct tpd_rw *rw, bool write)
 {
 	struct task_struct *tsk;
 	char *kbuf;
 	long ret = -EFAULT;
 	unsigned int flags = FOLL_FORCE;
 
-	if (!key_ok(rw->key))
+	if (!tpd_keyok(rw->key))
 		return -EACCES;
-	if (!rw->size || rw->size > NEKO_MAX_RW)
+	if (!rw->size || rw->size > TPD_MAX_RW)
 		return -EINVAL;
 
 	kbuf = kvzalloc(rw->size, GFP_KERNEL);
@@ -111,7 +112,7 @@ static long neko_rw(struct neko_rw *rw, bool write)
 		}
 	}
 
-	tsk = task_by_pid(rw->pid);
+	tsk = tpd_task(rw->pid);
 	if (!tsk) { ret = -ESRCH; goto out; }
 
 	ret = access_process_vm(tsk, rw->addr, kbuf, rw->size, flags);
@@ -127,7 +128,7 @@ out:
 }
 
 /* batch: one task lookup + one copy_to_user for the whole region list */
-static long neko_rwv(struct neko_rwv *r)
+static long tpd_rwv(struct tpd_rwv *r)
 {
 	struct task_struct *tsk;
 	u64 *addrs, *sizes;
@@ -136,10 +137,10 @@ static long neko_rwv(struct neko_rwv *r)
 	u64 total = 0, off = 0;
 	long done = 0;
 
-	if (!key_ok(r->key))
+	if (!tpd_keyok(r->key))
 		return -EACCES;
-	if (!r->count || r->count > NEKO_MAX_VEC ||
-	    r->buf_size > NEKO_MAX_RW)
+	if (!r->count || r->count > TPD_MAX_VEC ||
+	    r->buf_size > TPD_MAX_RW)
 		return -EINVAL;
 
 	addrs = kcalloc(r->count, sizeof(u64), GFP_KERNEL);
@@ -161,7 +162,7 @@ static long neko_rwv(struct neko_rwv *r)
 	kbuf = kvzalloc(total, GFP_KERNEL);
 	if (!kbuf) { done = -ENOMEM; goto out_vec; }
 
-	tsk = task_by_pid(r->pid);
+	tsk = tpd_task(r->pid);
 	if (!tsk) { done = -ESRCH; goto out_buf; }
 
 	for (i = 0; i < r->count; i++) {
@@ -189,18 +190,18 @@ out_vec:
 
 /* walk vma list, return vm_start of first file-backed region whose
  * basename contains the requested substring (same order as /proc/maps). */
-static long neko_mod(struct neko_mod *m)
+static long tpd_mod(struct tpd_mod *m)
 {
 	struct task_struct *tsk;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma;
 	long ret = -ENOENT;
 
-	if (!key_ok(m->key))
+	if (!tpd_keyok(m->key))
 		return -EACCES;
 	m->name[sizeof(m->name) - 1] = 0;
 
-	tsk = task_by_pid(m->pid);
+	tsk = tpd_task(m->pid);
 	if (!tsk)
 		return -ESRCH;
 	mm = get_task_mm(tsk);
@@ -225,32 +226,45 @@ static long neko_mod(struct neko_mod *m)
 	return ret;
 }
 
-static long neko_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
+static long tpd_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 {
-	struct neko_rw rw;
-	struct neko_rwv rwv;
-	struct neko_mod mod;
+	struct tpd_rw rw;
+	struct tpd_rwv rwv;
+	struct tpd_mod mod;
 	u64 key;
 
 	switch (cmd) {
-	case NEKO_IOC_INIT:
+	case TPD_IOC_INIT:
 		if (copy_from_user(&key, (void __user *)arg, sizeof(key)))
 			return -EFAULT;
-		WRITE_ONCE(neko_key, key);
+		/* first attach wins; idempotent for the same key only */
+		if (cmpxchg(&tpd_key, 0, key) && key != tpd_key)
+			return -EBUSY;
 		return 0;
-	case NEKO_IOC_READ:
-	case NEKO_IOC_WRITE:
+	case TPD_IOC_DEL:
+		if (copy_from_user(&key, (void __user *)arg, sizeof(key)))
+			return -EFAULT;
+		if (!tpd_keyok(key))
+			return -EACCES;
+		/* unlink the /proc node; open fds keep working (fops ref) */
+		if (tpd_ent) {
+			proc_remove(tpd_ent);
+			tpd_ent = NULL;
+		}
+		return 0;
+	case TPD_IOC_READ:
+	case TPD_IOC_WRITE:
 		if (copy_from_user(&rw, (void __user *)arg, sizeof(rw)))
 			return -EFAULT;
-		return neko_rw(&rw, cmd == NEKO_IOC_WRITE);
-	case NEKO_IOC_READV:
+		return tpd_rw(&rw, cmd == TPD_IOC_WRITE);
+	case TPD_IOC_READV:
 		if (copy_from_user(&rwv, (void __user *)arg, sizeof(rwv)))
 			return -EFAULT;
-		return neko_rwv(&rwv);
-	case NEKO_IOC_MODULE:
+		return tpd_rwv(&rwv);
+	case TPD_IOC_MODULE:
 		if (copy_from_user(&mod, (void __user *)arg, sizeof(mod)))
 			return -EFAULT;
-		if (neko_mod(&mod))
+		if (tpd_mod(&mod))
 			return -ENOENT;
 		if (copy_to_user((void __user *)arg, &mod, sizeof(mod)))
 			return -EFAULT;
@@ -260,17 +274,28 @@ static long neko_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 	}
 }
 
-static const struct file_operations neko_fops = {
+/* when the client closes, recreate the node and clear the key:
+ * hidden while in use, discoverable again for the next run. */
+static int tpd_release(struct inode *i, struct file *f)
+{
+	if (!tpd_ent)
+		tpd_ent = proc_create(tpd_name, 0600, NULL, &tpd_fops);
+	WRITE_ONCE(tpd_key, 0);
+	return 0;
+}
+
+static const struct file_operations tpd_fops = {
 	.owner = THIS_MODULE,
-	.unlocked_ioctl = neko_ioctl,
+	.unlocked_ioctl = tpd_ioctl,
+	.release = tpd_release,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = neko_ioctl,
+	.compat_ioctl = tpd_ioctl,
 #endif
 };
 
-static struct proc_dir_entry *neko_ent;
+static struct proc_dir_entry *tpd_ent;
 
-static int __init neko_mem_init(void)
+static int __init tpd_init(void)
 {
 	static const char alnum[] =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -278,23 +303,21 @@ static int __init neko_mem_init(void)
 	int i;
 
 	get_random_bytes(r, sizeof(r));
-	neko_name[0] = alnum[r[0] % 52]; /* letter - never looks like a pid dir */
+	tpd_name[0] = alnum[r[0] % 52]; /* letter - never looks like a pid dir */
 	for (i = 1; i < 8; i++)
-		neko_name[i] = alnum[r[i] % 62];
-	neko_name[8] = 0;
+		tpd_name[i] = alnum[r[i] % 62];
+	tpd_name[8] = 0;
 
 	/* /proc/<random>, 0600 root-only - no /dev node at all */
-	neko_ent = proc_create(neko_name, 0600, NULL, &neko_fops);
-	return neko_ent ? 0 : -ENOMEM;
+	tpd_ent = proc_create(tpd_name, 0600, NULL, &tpd_fops);
+	return tpd_ent ? 0 : -ENOMEM;
 }
 
-static void __exit neko_mem_exit(void)
+static void __exit tpd_exit(void)
 {
-	proc_remove(neko_ent);
+	proc_remove(tpd_ent);
 }
 
-module_init(neko_mem_init);
-module_exit(neko_mem_exit);
+module_init(tpd_init);
+module_exit(tpd_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("kernel-side process memory access");
