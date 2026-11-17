@@ -135,3 +135,7 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+
+# O= build output and local release artifacts
+out/
+releases/
