@@ -26,7 +26,14 @@ DTB_LIST := $(addsuffix .dtb,$(DTB_NAMES))
 else
 DTB_LIST := $(dtb-y)
 endif
+# Derive from dtb-y (populated statically by the dts/ Makefile includes
+# above) instead of scanning out/dts at parse time: a fresh out/ has no
+# dtbs yet, which forced builds to run a second make pass just so
+# Image.gz-dtb could see them. Stale-output-proof like the dtbo list.
+DTB_OBJS := $(addprefix $(obj)/dts/,$(dtb-y))
+ifeq ($(strip $(DTB_OBJS)),)
 DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)
+endif
 
 ifeq ($(CONFIG_MACH_XIAOMI_SM8250),y)
 include $(srctree)/arch/arm64/boot/dts/vendor/qcom/xiaomi-sm8250-dtbo.mk
