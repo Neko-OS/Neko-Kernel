@@ -313,7 +313,9 @@ dtc-tmp = $(subst $(comma),_,$(dot-target).dts.tmp)
 ifneq ($(MKDTBO_EXT),)
 MKDTBO = $(MKDTBO_EXT)
 else
-MKDTBO = mkdtboimg
+# vendored py3 mkdtboimg (CI fetch dropped); $(srctree)-absolute so it
+# resolves regardless of O= outdir cwd, where a bare name would not
+MKDTBO = $(srctree)/scripts/ufdt/libufdt/utils/src/mkdtboimg.py
 endif
 
 quiet_cmd_mkdtimg = DTBOIMG $@
